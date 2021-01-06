@@ -14,7 +14,12 @@ if [[ ${CURRENT_VERSION} -lt ${HISTDB_SCHEMA_VERSION} ]]; then
         cp ${BACKUP_FILE} ${HISTDB_FILE}
         sqlite3 "${TARGET_FILE}" < "${MIGRATION_FILENAME}"
         local R="$?"
-        [[ "$R" -ne 0 ]] && (echo "Error during database conversion"; cp ${BACKUP_FILE} ${HISTDB_FILE}) || echo "Update successful (you may want to remove the backup)"
+        if [[ "$R" -ne 0 ]]; then
+            echo "Error during database conversion"
+            cp ${BACKUP_FILE} ${HISTDB_FILE}
+        else
+            echo "Update successful (you may want to remove the backup)"
+        fi
         return "$R"
     else
         echo "There is no migration script from version ${CURRENT_VERSION} to ${HISTDB_SCHEMA_VERSION}."
