@@ -77,6 +77,7 @@ _histdb_init () {
         fi
         _histdb_query <<-EOF
 create table commands (id integer primary key autoincrement, argv text, unique(argv) on conflict ignore);
+create table tags     (id integer primary key autoincrement, tag text, unique(tag) on conflict ignore);
 create table places   (id integer primary key autoincrement, host text, dir text, unique(host, dir) on conflict ignore);
 create table history  (id integer primary key autoincrement,
                        session int,
@@ -84,8 +85,9 @@ create table history  (id integer primary key autoincrement,
                        place_id int references places (id),
                        exit_status int,
                        start_time int,
+                       tag_id int references tags (id),
                        duration int);
-PRAGMA user_version = 2;
+PRAGMA user_version = 3;
 EOF
     fi
     if [[ -z "${HISTDB_SESSION}" ]]; then
@@ -143,25 +145,29 @@ _histdb_addhistory () {
     local cmd="'$(sql_escape $cmd)'"
     local pwd="'$(sql_escape ${PWD})'"
     local started=$(date +%s)
+    local tag="'$(sql_escape ${TAG:-"none"})'"
     _histdb_init
 
     if [[ "$cmd" != "''" ]]; then
         _histdb_query_batch <<EOF &|
 insert into commands (argv) values (${cmd});
+insert into tags (tag) values (${tag});
 insert into places   (host, dir) values (${HISTDB_HOST}, ${pwd});
 insert into history
-  (session, command_id, place_id, start_time)
+  (session, command_id, place_id, start_time, tag_id)
 select
   ${HISTDB_SESSION},
   commands.id,
   places.id,
-  ${started}
+  ${started},
+  tags.id
 from
-  commands, places
+  commands, places, tags
 where
   commands.argv = ${cmd} and
   places.host = ${HISTDB_HOST} and
-  places.dir = ${pwd}
+  places.dir = ${pwd} and
+  tags.tag = ${tag}
 ;
 EOF
     fi
